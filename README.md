@@ -31,16 +31,15 @@ Browser ──/api/konten──▶ Express :3001 ──▶ SQLite (server/data/k
 
 ### Opsi A — Dev Manager (GUI, tanpa terminal) ⭐
 
-Double-click **`Dev Manager.bat`** di folder `D:\my-project\test-muse`.
-Aplikasi desktop kecil akan terbuka dengan:
+Double-click **`Dev Manager.bat`** di folder project `D:\my-project\test-muse`.
+Dashboard desktop GUI terpadu akan langsung terbuka (tanpa jendela terminal hitam menggantung):
 
-- Tombol **Start/Stop** untuk Backend API (:3001) dan Frontend (:5173)
-- Indikator status ● hijau/merah (dicek otomatis tiap 2 detik)
-- Tombol **Start Semua** / **Stop Semua**
-- Tombol **Buka Website** dan **Buka Admin**
-- Panel **log** gabungan dari kedua proses
-
-Tutup jendela untuk menghentikan semua proses yang dijalankannya.
+- **Kartu Backend API (:3001)**: Status visual (● Berjalan / Berhenti), PID proses, tombol **Start**, **Stop**, **Restart**, serta tombol tes endpoint `/api/konten`.
+- **Kartu Frontend Website (:5173)**: Status visual, PID proses, tombol **Start**, **Stop**, **Restart**, serta tombol buka langsung ke browser.
+- **Master Toolbar**: Tombol **Start Semua**, **Stop Semua**, **Restart Semua**, **Buka Web**, **Admin CMS**, dan **npm install**.
+- **Log Viewer Terpadu**: Tab filter (**Semua Log**, **Backend**, **Frontend**, **Error**), pembersihan karakter warna ANSI otomatis, toggle **Auto-scroll**, tombol **Salin ke Clipboard**, tombol **Bersihkan**, dan shortcut ke folder log.
+- **Deteksi Port Non-Blocking**: Menggunakan query TCP listeners tingkat kernel (~6ms) sehingga GUI responsif dan anti-macet ("Not Responding").
+- **Auto Cleanup**: Menutup jendela dashboard otomatis menghentikan proses backend & frontend secara tuntas hingga ke child process (`taskkill /T /F`) dan membebaskan port.
 
 ### Opsi B — via terminal
 
@@ -61,7 +60,14 @@ Perintah lain:
 ```bash
 npm run build     # build production frontend ke folder dist/
 npm run preview   # pratinjau hasil build production
+
+# Perintah Migrasi Basis Data (Knex ORM):
+npm run migrate           # Jalankan migrasi skema terbaru
+npm run migrate:status    # Cek status daftar migrasi yang sudah/belum jalan
+npm run migrate:rollback  # Rollback batch migrasi terakhir
+npm run migrate:mysql     # Migrasi terukur dari SQLite ke MySQL (otomatis create DB & transaksional)
 ```
+
 
 > Catatan: `npm run dev` mem-proxy `/api` ke backend, jadi backend **wajib jalan**
 > agar halaman utama menampilkan data terbaru. Jika backend mati, halaman otomatis

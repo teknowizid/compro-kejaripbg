@@ -3,6 +3,33 @@
 Semua perubahan penting pada project ini dicatat di file ini.
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id/1.1.0/).
 
+## [1.3.0] - 2026-10-01
+
+### Ditambahkan & Ditingkatkan
+- **Dev Manager Dashboard Desktop GUI Terpadu (v2.0)**:
+  - **Launcher Bersih Tanpa Terminal Menggantung**: `Dev Manager.bat` membuka dashboard desktop secara langsung menggunakan `-WindowStyle Hidden` tanpa meninggalkan jendela command prompt hitam yang mengganggu.
+  - **Deteksi Port Non-Blocking**: Mengganti pemanggilan `TcpClient.BeginConnect` yang sebelumnya membekukan UI hingga 1.2 detik per detik menjadi `[System.Net.NetworkInformation.IPGlobalProperties]` yang instan (~6ms) sehingga GUI berjalan mulus tanpa macet/not responding.
+  - **Pembersihan Proses Anti-Zombie**: Terminasi berbasis Process Tree (`taskkill /T /F`) dan pembebasan port otomatis (`Stop-PortProcess`) sehingga tidak ada proses `node` atau `vite` nyangkut saat service dihentikan atau dashboard ditutup.
+  - **Kontrol Lengkap Per Layanan**: Kartu terpisah untuk Backend API (:3001) dan Frontend (:5173) dilengkapi indikator status visual, port, PID proses aktif, tombol **Start**, **Stop**, **Restart**, dan tautan cepat endpoint/website.
+  - **Master Toolbar**: Tombol **Start Semua**, **Stop Semua**, **Restart Semua**, **Buka Web**, **Admin CMS**, dan **npm install** dalam 1 panel kontrol terpadu.
+  - **Log Viewer dengan Tab Filter**: Filter log instan berdasarkan tab **Semua Log**, **Backend (API)**, **Frontend (Vite)**, dan **Error Log**, dilengkapi pembersih kode warna ANSI (bebas karakter rusak seperti `zo`), checkbox **Auto-scroll**, tombol **Salin**, **Bersihkan**, dan **Folder Log**.
+- **Relayout UI/UX Panel Admin Modern & Profesional**:
+  - **Arsitektur Dashboard Sidebar**: Mengganti tab horizontal jadul dengan layout dashboard sidebar standar industri (logo KN emas, navigasi berkategori, badge jumlah entri dinamis, dan widget profil admin dengan logout).
+  - **Konsistensi Palet Warna Resmi**: Harmonisasi warna institusional Kejaksaan (Forest Green `#0d2818` / `#14532d`, Gold Emas `#c9a227` / `#e3b94e`, dan Slate `#f8fafc` / `#ffffff`) di seluruh komponen.
+  - **Quick Stats Bar**: Kartu statistik ringkasan total berita, layanan publik, dan testimoni masyarakat di bagian atas dashboard.
+  - **Pencarian Real-Time & Filter**: Input pencarian instan pada tab Berita, Layanan, dan Testimoni dengan indikator jumlah entri dan tampilan *empty state* yang interaktif.
+  - **Visual Image Picker**: Pemilih gambar galeri interaktif langsung dari aset `public/` dengan thumbnail preview saat menambah/mengedit konten.
+  - **Dialog Konfirmasi Hapus**: Mengganti alert browser default (`window.confirm`) dengan modal konfirmasi modern berlatar *backdrop blur*.
+  - **Pengelompokan Kartu Pengaturan Website**: Form teks website ditata rapi dalam 4 kartu kontekstual (Hero Section, Profil Lembaga, CTA Banner, dan Footer).
+  - **Desain Halaman Login Elegan**: Tampilan login modern dengan latar radial institusional, lambang KN emas, dan toggle lihat/sembunyikan kata sandi.
+  - **Sistem Notifikasi Toast**: Feedback aksi pengguna (tambah, edit, hapus, simpan pengaturan, ganti password) ditampilkan melalui toast notifikasi animasi halus di pojok kanan bawah.
+- **Arsitektur Basis Data Terukur, Knex ORM & Mitigasi Migrasi MySQL**:
+  - **Dukungan Dual-Driver (SQLite & MySQL)**: Integrasi Knex.js sebagai ORM / Query Builder dan Migration Engine dengan driver `better-sqlite3` untuk lokal/dev dan `mysql2` dengan connection pooling untuk staging/produksi (cukup set `DB_CLIENT=mysql` di `.env`).
+  - **Migrasi Skema Terstruktur**: Seluruh tabel skema (`berita`, `layanan`, `testimoni`, `pengaturan`, `admin`, `sesi`) didefinisikan secara deklaratif di `server/migrations/` dengan versioning waktu dan audit log di tabel `knex_migrations`.
+  - **Perintah CLI Migrasi Terpadu**: Ditambahkan script `npm run migrate`, `npm run migrate:status`, dan `npm run migrate:rollback` di root project.
+  - **Skrip Migrasi SQLite -> MySQL Terukur**: Disediakan `server/scripts/migrate-to-mysql.js` (`npm run migrate:mysql`) yang memindahkan data secara transaksional (`SET FOREIGN_KEY_CHECKS = 0`, chunking, commit) dengan pelaporan durasi per milidetik dan validasi hitungan data.
+  - **Dokumentasi PRD Komprehensif**: Dicatat lengkap di `PRD.md` Bagian 8 mencakup skema pemetaan tipe data, mitigasi charset `utf8mb4`, timezone, foreign keys, dan SOP migrasi zero-downtime.
+
 ## [1.2.1] - 2026-10-01
 
 ### Diperbaiki

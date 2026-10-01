@@ -17,7 +17,11 @@
                     "dev":  "vite",
                     "preview":  "vite preview",
                     "server":  "npm --prefix server start",
-                    "server:dev":  "npm --prefix server run dev"
+                    "server:dev":  "npm --prefix server run dev",
+                    "migrate":  "npm --prefix server run migrate",
+                    "migrate:status":  "npm --prefix server run migrate:status",
+                    "migrate:rollback":  "npm --prefix server run migrate:rollback",
+                    "migrate:mysql":  "npm --prefix server run migrate:mysql"
                 },
     "type":  "module",
     "version":  "1.2.1"

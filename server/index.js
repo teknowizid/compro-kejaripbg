@@ -4,8 +4,9 @@
 import express from 'express'
 import cors from 'cors'
 import { randomBytes } from 'node:crypto'
-import { db, hashPassword, verifyPassword, seedIfEmpty } from './db.js'
+import { db, hashPassword, verifyPassword, seedIfEmpty, runMigrations } from './db.js'
 
+await runMigrations()
 seedIfEmpty()
 
 const app = express()

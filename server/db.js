@@ -5,6 +5,8 @@ import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import fs from 'node:fs'
 import path from 'node:path'
+import knexLib from 'knex'
+import knexConfig from './knexfile.js'
 
 const dir = path.dirname(fileURLToPath(import.meta.url))
 const dataDir = path.join(dir, 'data')
@@ -12,6 +14,19 @@ fs.mkdirSync(dataDir, { recursive: true })
 
 export const db = new Database(path.join(dataDir, 'kejari.db'))
 db.pragma('journal_mode = WAL')
+
+export const knex = knexLib(knexConfig[process.env.NODE_ENV || 'development'])
+
+export async function runMigrations() {
+  try {
+    const [batch, files] = await knex.migrate.latest()
+    if (files && files.length > 0) {
+      console.log(`[db] Migrasi skema Knex diterapkan (Batch ${batch}): ${files.join(', ')}`)
+    }
+  } catch (err) {
+    console.error('[db] Peringatan migrasi Knex:', err.message)
+  }
+}
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS berita (
