@@ -1,7 +1,13 @@
-# Dev Manager — Kejaksaan Negeri Purbalingga
+# Dev Manager — Kejaksaan Negeri Purbalingga (v1.2.1)
 # GUI desktop (Windows Forms) untuk mengelola backend + frontend tanpa terminal.
 # Cara pakai: double-click "Dev Manager.bat" di folder project.
 # Tidak butuh install apa-apa, hanya butuh Node.js terinstall.
+#
+# Catatan arsitektur v1.2.1: child process (node) me-redirect stdout/stderr ke
+# FILE log, lalu timer UI me-tail file tersebut. Pola lama (event handler async
+# .NET add_OutputDataReceived yang menulis ke antrean dari thread pool) bisa
+# melempar unhandled exception di thread non-UI dan mematikan seluruh GUI
+# ("forced close" saat klik Start). Pola file + tail 100% berjalan di UI thread.
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
@@ -25,46 +31,48 @@ if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
 # ---------- state ----------
 $script:backendProc = $null
 $script:frontendProc = $null
-$script:logQueue = [System.Collections.Concurrent.ConcurrentQueue[string]]::new()
+$script:backendLog = Join-Path $logDir 'backend.log'
+$script:backendErr = Join-Path $logDir 'backend.err.log'
+$script:frontendLog = Join-Path $logDir 'frontend.log'
+$script:frontendErr = Join-Path $logDir 'frontend.err.log'
+$script:backendPos = 0
+$script:backendErrPos = 0
+$script:frontendPos = 0
+$script:frontendErrPos = 0
 
 # ---------- helper ----------
 function Add-Log($msg) {
-    $script:logQueue.Enqueue(('[{0:HH:mm:ss}] {1}' -f (Get-Date), $msg))
+    $txtLog.AppendText(('[{0:HH:mm:ss}] {1}' -f (Get-Date), $msg) + [Environment]::NewLine)
+    Trim-Log
+    $txtLog.SelectionStart = $txtLog.Text.Length
+    $txtLog.ScrollToCaret()
+}
+
+function Trim-Log {
+    $baris = $txtLog.Lines
+    if ($baris.Count -gt 800) {
+        $txtLog.Lines = $baris[($baris.Count - 800)..($baris.Count - 1)]
+    }
 }
 
 function Test-Port($port) {
+    $c = New-Object Net.Sockets.TcpClient
     try {
-        $c = New-Object Net.Sockets.TcpClient
         $iar = $c.BeginConnect('127.0.0.1', $port, $null, $null)
-        $ok = $iar.AsyncWaitHandle.WaitOne(500)
-        $c.Close()
-        return $ok
+        if (-not $iar.AsyncWaitHandle.WaitOne(500)) { return $false }
+        $c.EndConnect($iar)  # melempar jika koneksi ditolak -> port tertutup
+        return $true
     } catch { return $false }
+    finally { $c.Close() }
 }
 
-function Start-ProsesTertangkap($file, $args, $workdir, $tag) {
-    $psi = New-Object System.Diagnostics.ProcessStartInfo
-    $psi.FileName = $file
-    $psi.Arguments = $args
-    $psi.WorkingDirectory = $workdir
-    $psi.UseShellExecute = $false
-    $psi.CreateNoWindow = $true
-    $psi.RedirectStandardOutput = $true
-    $psi.RedirectStandardError = $true
-    $p = New-Object System.Diagnostics.Process
-    $p.StartInfo = $psi
-    $p.add_OutputDataReceived({
-        param($s, $e)
-        if ($e.Data) { $script:logQueue.Enqueue(('[{0:HH:mm:ss}] [{1}] {2}' -f (Get-Date), $tag, $e.Data)) }
-    })
-    $p.add_ErrorDataReceived({
-        param($s, $e)
-        if ($e.Data) { $script:logQueue.Enqueue(('[{0:HH:mm:ss}] [{1}:err] {2}' -f (Get-Date), $tag, $e.Data)) }
-    })
-    $p.Start() | Out-Null
-    $p.BeginOutputReadLine()
-    $p.BeginErrorReadLine()
-    return $p
+function Start-Proses($namaExe, $argumen, $workdir, $logPath, $errPath) {
+    # Segarkan file log setiap start agar isi lama tidak terbaca ulang.
+    [IO.File]::WriteAllText($logPath, '')
+    [IO.File]::WriteAllText($errPath, '')
+    return (Start-Process $namaExe -ArgumentList $argumen -WorkingDirectory $workdir `
+        -NoNewWindow -PassThru `
+        -RedirectStandardOutput $logPath -RedirectStandardError $errPath)
 }
 
 function Stop-Proses($p) {
@@ -77,11 +85,49 @@ function Stop-Sweep($pola) {
         ForEach-Object { try { Stop-Process -Id $_.ProcessId -Force -ErrorAction Stop } catch {} }
 }
 
+# Baca byte baru dari file log (aman dibaca walau sedang ditulis proses lain).
+function Baca-LogBaru($path, $tag, [ref]$pos) {
+    if (-not (Test-Path $path)) { return }
+    try {
+        $fs = [IO.File]::Open($path, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite)
+        try {
+            if ($fs.Length -lt $pos.Value) { $pos.Value = 0 }  # file di-truncate
+            $fs.Seek($pos.Value, [IO.SeekOrigin]::Begin) | Out-Null
+            $sr = New-Object IO.StreamReader($fs)
+            $teks = $sr.ReadToEnd()
+            $pos.Value = $fs.Position
+            $sr.Close()
+            if ($teks) {
+                $prefix = '[{0:HH:mm:ss}] [{1}] ' -f (Get-Date), $tag
+                $barisBaru = $teks -split "`r?`n" | Where-Object { $_ -ne '' } | ForEach-Object { $prefix + $_ }
+                return ($barisBaru -join [Environment]::NewLine)
+            }
+        } finally { $fs.Close() }
+    } catch {}
+    return $null
+}
+
+function Tail-SemuaLog {
+    $semua = @(
+        (Baca-LogBaru $script:backendLog 'backend' ([ref]$script:backendPos)),
+        (Baca-LogBaru $script:backendErr 'backend:err' ([ref]$script:backendErrPos)),
+        (Baca-LogBaru $script:frontendLog 'frontend' ([ref]$script:frontendPos)),
+        (Baca-LogBaru $script:frontendErr 'frontend:err' ([ref]$script:frontendErrPos))
+    ) | Where-Object { $_ }
+    if ($semua) {
+        $txtLog.AppendText(($semua -join [Environment]::NewLine) + [Environment]::NewLine)
+        Trim-Log
+        $txtLog.SelectionStart = $txtLog.Text.Length
+        $txtLog.ScrollToCaret()
+    }
+}
+
 # ---------- aksi backend ----------
 function Start-Backend {
     if (Test-Port $BACKEND_PORT) { Add-Log 'Backend sudah berjalan di :3001'; return }
     try {
-        $script:backendProc = Start-ProsesTertangkap 'node' 'index.js' (Join-Path $root 'server') 'backend'
+        $script:backendProc = Start-Proses 'node' 'index.js' (Join-Path $root 'server') $script:backendLog $script:backendErr
+        $script:backendPos = 0; $script:backendErrPos = 0
         Add-Log 'Backend starting... (node server/index.js)'
     } catch { Add-Log ('Gagal start backend: ' + $_.Exception.Message) }
 }
@@ -89,7 +135,7 @@ function Start-Backend {
 function Stop-Backend {
     Stop-Proses $script:backendProc
     $script:backendProc = $null
-    Stop-Sweep '*test-muse\server*'
+    Stop-Sweep '*index.js*'
     Add-Log 'Backend dihentikan.'
 }
 
@@ -99,7 +145,8 @@ function Start-Frontend {
     $viteBin = Join-Path $root 'node_modules\vite\bin\vite.js'
     if (-not (Test-Path $viteBin)) { Add-Log 'vite belum terinstall — jalankan "npm install" dulu.'; return }
     try {
-        $script:frontendProc = Start-ProsesTertangkap 'node' "`"$viteBin`"" $root 'frontend'
+        $script:frontendProc = Start-Proses 'node' "`"$viteBin`"" $root $script:frontendLog $script:frontendErr
+        $script:frontendPos = 0; $script:frontendErrPos = 0
         Add-Log 'Frontend starting... (vite dev server)'
     } catch { Add-Log ('Gagal start frontend: ' + $_.Exception.Message) }
 }
@@ -107,7 +154,7 @@ function Start-Frontend {
 function Stop-Frontend {
     Stop-Proses $script:frontendProc
     $script:frontendProc = $null
-    Stop-Sweep '*test-muse*vite*'
+    Stop-Sweep '*vite*'
     Add-Log 'Frontend dihentikan.'
 }
 
@@ -209,32 +256,18 @@ function Set-Status($g, $jalan, $nama) {
     }
 }
 
-function Kuras-Log {
-    $item = $null
-    $n = 0
-    while ($script:logQueue.TryDequeue([ref]$item) -and $n -lt 200) {
-        $txtLog.AppendText($item + [Environment]::NewLine)
-        $n++
-    }
-    # batasi 800 baris terakhir
-    $baris = $txtLog.Lines
-    if ($baris.Count -gt 800) {
-        $txtLog.Lines = $baris[($baris.Count - 800)..($baris.Count - 1)]
-    }
-    if ($n -gt 0) { $txtLog.SelectionStart = $txtLog.Text.Length; $txtLog.ScrollToCaret() }
-}
-
 $timer = New-Object System.Windows.Forms.Timer
-$timer.Interval = 2000
+$timer.Interval = 1000
 $timer.Add_Tick({
     Set-Status $gB (Test-Port $BACKEND_PORT) 'Backend'
     Set-Status $gF (Test-Port $FRONTEND_PORT) 'Frontend'
-    Kuras-Log
+    Tail-SemuaLog
 })
 
 $form.Add_Shown({
     Add-Log 'Dev Manager siap. Klik "Start Semua" untuk menjalankan backend + frontend.'
     Add-Log "Project: $root"
+    Add-Log "Log file tersimpan di: $logDir"
     $timer.Start()
     # status awal langsung
     Set-Status $gB (Test-Port $BACKEND_PORT) 'Backend'

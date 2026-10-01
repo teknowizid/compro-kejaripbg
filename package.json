@@ -20,5 +20,5 @@
                     "server:dev":  "npm --prefix server run dev"
                 },
     "type":  "module",
-    "version":  "1.2.0"
+    "version":  "1.2.1"
 }

@@ -3,6 +3,22 @@
 Semua perubahan penting pada project ini dicatat di file ini.
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id/1.1.0/).
 
+## [1.2.1] - 2026-10-01
+
+### Diperbaiki
+- **Dev Manager crash ("forced close") saat klik Start** — penyebab: event handler
+  async .NET (`add_OutputDataReceived`) yang menulis ke antrean log dari thread pool;
+  unhandled exception di thread tersebut mematikan seluruh GUI. Sekarang child process
+  (node) me-redirect stdout/stderr ke file (`tools/logs/*.log`), lalu timer UI me-tail
+  file tersebut — 100% berjalan di UI thread, anti-crash. Bonus: log tersimpan permanen
+  di file dan bisa dilihat ulang.
+- **Test-Port selalu lapor "BERJALAN"** walau port tertutup — `WaitOne()` hanya menunggu
+  sinyal, bukan memastikan koneksi sukses. Sekarang memakai `EndConnect()` sehingga
+  status indikator akurat.
+- **Stop-Sweep tidak pernah cocok** — pola `*test-muse\server*` tidak ada di command line
+  proses (`node index.js`). Sekarang memakai pola `*index.js*` / `*vite*`.
+- Nama parameter `$args` (bentrok dengan variabel otomatis PowerShell) diganti `$argumen`.
+
 ## [1.2.0] - 2026-10-01
 
 ### Ditambahkan
