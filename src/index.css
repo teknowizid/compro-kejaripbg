@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+@theme {
+  --color-hijau-tua: #0d2818;
+  --color-hijau: #14532d;
+  --color-emas: #c9a227;
+  --color-emas-terang: #e3b94e;
+  --color-krem: #faf7ef;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  background-color: var(--color-krem);
+  color: #1a1a1a;
+}
