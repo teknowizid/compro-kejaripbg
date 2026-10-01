@@ -106,29 +106,81 @@ Buka **http://localhost:5173/admin** (atau klik tautan "Admin" di footer).
 | `PUT /api/admin/password` | token | Ganti password |
 
 Header auth: `Authorization: Bearer <token>`.
-Database: `server/data/kejari.db` (dibuat otomatis + seed saat server pertama dijalankan).
+Database default: `server/data/kejari.db` (SQLite) atau MySQL sesuai konfigurasi `DB_CLIENT`.
+
+## Migrasi Basis Data & Panduan Pindah ke MySQL
+
+Proyek ini telah menggunakan **Knex.js** sebagai *database abstraction layer* (ORM / Query Builder & Migration Engine) dengan dukungan arsitektur **Dual-Driver**:
+- **SQLite (Default Dev / Lokal)**: Data tersimpan di `server/data/kejari.db` (zero configuration, otomatis dibuat & di-seed).
+- **MySQL / MariaDB (Staging / Production)**: Mendukung *connection pooling* (`mysql2`), isolasi transaksi InnoDB, dan charset `utf8mb4`.
+
+### Perintah CLI Migrasi
+
+Jalankan perintah ini langsung dari folder root proyek:
+
+| Perintah | Fungsi |
+|---|---|
+| `npm run migrate` | Menjalankan seluruh file migrasi skema terbaru yang belum diterapkan |
+| `npm run migrate:status` | Memeriksa status audit file migrasi (`Completed` / `Pending`) |
+| `npm run migrate:rollback` | Membatalkan (*rollback*) batch migrasi skema terakhir |
+| `npm run migrate:mysql` | Eksekusi migrasi data terukur dari SQLite ke MySQL secara transaksional |
+
+### Panduan Langkah Demi Langkah Beralih ke MySQL
+
+Saat aplikasi siap dideploy menggunakan database MySQL:
+
+1. **Konfigurasi Environment**:
+   Salin `server/.env.example` menjadi `server/.env`:
+   ```env
+   DB_CLIENT=mysql
+   DB_HOST=127.0.0.1
+   DB_PORT=3306
+   DB_USER=root
+   DB_PASSWORD=password_anda
+   DB_NAME=kejari_db
+   ```
+2. **Jalankan Migrasi Data Terukur**:
+   ```bash
+   npm run migrate:mysql
+   ```
+   Skrip ini secara otomatis:
+   - Membuat database target MySQL (`utf8mb4_unicode_ci`) jika belum ada.
+   - Menjalankan seluruh skema migrasi tabel Knex.
+   - Memindahkan seluruh data tabel secara transaksional (`SET FOREIGN_KEY_CHECKS = 0`, chunking, commit).
+   - Menampilkan tabel rekapitulasi durasi eksekusi milidetik dan memvalidasi kecocokan jumlah baris.
+3. **Mulai Server**:
+   Jalankan `npm run server` atau buka lewat **Dev Manager.bat**. Backend akan otomatis berjalan di atas database MySQL.
+
+> Detail lengkap arsitektur basis data, pemetaan tipe data, dan mitigasi teknis dapat dibaca di **[PRD.md](PRD.md) Bagian 8**.
 
 ## Struktur Project
 
 ```
 test-muse/
+├── Dev Manager.bat         # Launcher dashboard GUI desktop (tanpa terminal)
 ├── index.html
 ├── vite.config.js          # proxy /api -> localhost:3001 (dev)
-├── package.json            # scripts: dev, build, preview, server, server:dev
-├── public/                 # 8 aset foto (hero, gedung, layanan, berita, ...)
+├── package.json            # scripts: dev, build, server, migrate, migrate:mysql
+├── public/                 # 8 aset foto resmi
 ├── server/
-│   ├── package.json        # express, better-sqlite3, cors
-│   ├── index.js            # aplikasi Express + seluruh endpoint API
-│   ├── db.js               # inisialisasi SQLite, hashing, seed data
-│   └── data/kejari.db      # database (dibuat otomatis saat server jalan)
+│   ├── .env.example        # template konfigurasi DB (SQLite / MySQL)
+│   ├── package.json        # express, knex, better-sqlite3, mysql2, cors
+│   ├── knexfile.js         # konfigurasi koneksi Knex dual-driver
+│   ├── index.js            # aplikasi Express + endpoint API + auto-migration
+│   ├── db.js               # inisialisasi Knex ORM, SQLite instance, password hashing
+│   ├── migrations/         # skema tabel terstruktur & seed baseline berversi
+│   ├── scripts/            # migrate-to-mysql.js (skrip migrasi data terukur)
+│   └── data/kejari.db      # database SQLite lokal
 ├── src/
 │   ├── main.jsx
-│   ├── index.css           # Tailwind + design token (warna, font)
-│   ├── App.jsx             # router: / -> Home, /admin -> Admin
-│   ├── lib/api.js          # klien API + KONTEN_DEFAULT (fallback)
+│   ├── index.css           # Tailwind v4 + design tokens (warna, font)
+│   ├── App.jsx             # routing: / -> Home, /admin -> Admin
+│   ├── lib/api.js          # klien API terpusat + KONTEN_DEFAULT (fallback)
 │   └── pages/
-│       ├── Home.jsx        # landing page (fetch /api/konten)
-│       └── Admin.jsx       # panel admin (login + CRUD)
+│       ├── Home.jsx        # landing page dinamis
+│       └── Admin.jsx       # panel admin modern (sidebar, visual picker, modal)
+├── tools/
+│   └── dev-manager.ps1     # core GUI desktop dashboard (Windows Forms non-blocking)
 ├── README.md
 ├── CHANGELOG.md
 └── PRD.md
