@@ -1,200 +1,157 @@
-# Website Kejaksaan Negeri Purbalingga
+# Website Kejaksaan Negeri Purbalingga (Versi PHP Murni & Zero-Dependency)
 
-Website profil resmi **Kejaksaan Negeri Purbalingga** — dibangun dengan React, Vite, dan Tailwind CSS,
-dilengkapi **backend CMS (Express + SQLite)** dan **panel admin** sehingga konten halaman utama
-bisa diubah tanpa coding.
+Website profil resmi **Kejaksaan Negeri Purbalingga** yang dibangun secara murni menggunakan **PHP (PHP 7.4 s.d. 8.3+)**, **Tailwind CSS**, dan **MySQL**. Dilengkapi **Panel Admin CMS Terpadu** sehingga seluruh konten berita, layanan, testimoni, dan teks profil institusi dapat dikelola langsung tanpa coding.
 
-## Arsitektur
+Dirancang khusus untuk **kemudahan deployment di shared hosting (cPanel)**:
+- **Zero-Dependency**: Tidak butuh Node.js, NPM, Composer, ataupun terminal SSH.
+- **Ringan & Cepat**: Total ukuran seluruh website hanya **~1,6 MB** (termasuk 8 foto aset).
+- **Aman Berstandar OWASP**: Dilengkapi proteksi SQL Injection (PDO Prepared Statements), Bcrypt hashing, proteksi sesi, CSRF tokens, dan pencegahan XSS.
 
+---
+
+## 🏛️ Arsitektur & Struktur Folder
+
+```text
+php-app/
+├── index.php             # Halaman publik utama (10 section: Hero, Layanan, Berita, dll)
+├── koneksi.php           # Koneksi database aman PDO MySQL & helper keamanan
+├── database.sql          # Skema basis data & data awal (siap import phpMyAdmin)
+├── .htaccess             # Header keamanan Apache & proteksi file sensitif
+├── README-CPANEL.md      # Panduan instalasi cepat 5 menit di cPanel
+├── assets/
+│   ├── css/style.css     # Styling Tailwind CSS lengkap
+│   └── images/           # Aset gambar resmi lokal (hero, gedung, barang bukti, dll)
+└── admin/                # Panel Admin CMS
+    ├── login.php         # Halaman login administrator
+    ├── logout.php        # Hapus sesi login
+    ├── index.php         # Dashboard ringkasan & statistik
+    ├── berita.php        # Kelola berita & kegiatan (CRUD + Pencarian)
+    ├── layanan.php       # Kelola program layanan masyarakat (CRUD)
+    ├── testimoni.php     # Kelola ulasan & testimoni warga (CRUD)
+    ├── pengaturan.php    # Pengaturan teks profil, hero, CTA, & alamat
+    ├── akun.php          # Ganti kata sandi administrator
+    └── inc/
+        ├── auth.php      # Middleware session guard & verifikasi CSRF
+        ├── header.php    # Sidebar navigasi & header admin
+        └── footer.php    # Modal script & penutup layout
 ```
-Browser ──/api/konten──▶ Express :3001 ──▶ SQLite (server/data/kejari.db)
-   │                          ▲
-   │                     /api/admin/* (butuh token login)
-   │
-   ├─ /         halaman utama (data dinamis dari API, fallback statis bila API mati)
-   └─ /admin    panel admin (login + CRUD berita/layanan/testimoni/pengaturan)
-```
 
-## Teknologi
+---
 
-| Komponen   | Versi / Keterangan                        |
-|------------|-------------------------------------------|
-| React      | 19.x + React Router 7 (routing `/` dan `/admin`) |
-| Vite       | 6.x (proxy `/api` → `http://localhost:3001` saat dev) |
-| Tailwind CSS | 4.x (via plugin `@tailwindcss/vite`)    |
-| Backend    | Express 4 + better-sqlite3 + CORS (folder `server/`) |
-| Auth admin | Token acak (scrypt untuk hash password)   |
-| Ikon       | Inline SVG (tanpa dependensi ikon eksternal) |
-| Gambar     | Aset lokal di `public/` (8 file JPG)      |
+## 🔒 Standar Keamanan
 
-## Cara Menjalankan
+1. **Anti SQL Injection**: 100% interaksi database menggunakan **PDO Prepared Statements** dengan parameter binding.
+2. **Password Enkripsi**: Menggunakan standar industri **`PASSWORD_BCRYPT`** bawaan PHP (`password_hash` & `password_verify`).
+3. **Anti Session Hijacking**: Otomatis menjalankan `session_regenerate_id(true)` saat proses autentikasi berhasil.
+4. **Anti XSS (Cross-Site Scripting)**: Semua output data yang dicetak ke layar HTML disaring ketat melalui `htmlspecialchars()`.
+5. **Anti CSRF (Cross-Site Request Forgery)**: Seluruh aksi formulir tambah, edit, dan hapus di admin dilindungi token CSRF per sesi.
+6. **Proteksi File Sensitif Apache**: Konfigurasi `.htaccess` memblokir pengunduhan langsung file `database.sql`, `.env`, dan mencegah intip folder (*Directory Listing*).
 
-### Opsi A — Dev Manager (GUI, tanpa terminal) ⭐
+---
 
-Double-click **`Dev Manager.bat`** di folder project `D:\my-project\test-muse`.
-Dashboard desktop GUI terpadu akan langsung terbuka (tanpa jendela terminal hitam menggantung):
+## 🚀 Panduan Menjalankan
 
-- **Kartu Backend API (:3001)**: Status visual (● Berjalan / Berhenti), PID proses, tombol **Start**, **Stop**, **Restart**, serta tombol tes endpoint `/api/konten`.
-- **Kartu Frontend Website (:5173)**: Status visual, PID proses, tombol **Start**, **Stop**, **Restart**, serta tombol buka langsung ke browser.
-- **Master Toolbar**: Tombol **Start Semua**, **Stop Semua**, **Restart Semua**, **Buka Web**, **Admin CMS**, dan **npm install**.
-- **Log Viewer Terpadu**: Tab filter (**Semua Log**, **Backend**, **Frontend**, **Error**), pembersihan karakter warna ANSI otomatis, toggle **Auto-scroll**, tombol **Salin ke Clipboard**, tombol **Bersihkan**, dan shortcut ke folder log.
-- **Deteksi Port Non-Blocking**: Menggunakan query TCP listeners tingkat kernel (~6ms) sehingga GUI responsif dan anti-macet ("Not Responding").
-- **Auto Cleanup**: Menutup jendela dashboard otomatis menghentikan proses backend & frontend secara tuntas hingga ke child process (`taskkill /T /F`) dan membebaskan port.
+### Opsi A — Di Shared Hosting cPanel (Produksi)
+1. Buat database & user MySQL di cPanel (**MySQL Databases**).
+2. Buka **phpMyAdmin**, pilih database tersebut, lalu klik tab **Import** dan pilih file `database.sql`.
+3. Buka file `koneksi.php`, sesuaikan nama database, user, dan password MySQL Anda.
+4. Upload semua file dalam folder `php-app` ini ke dalam folder `public_html` via File Manager cPanel, lalu ekstrak.
+5. Selesai! Buka domain Anda di browser.
 
-### Opsi B — via terminal
-
-Butuh **dua terminal** (atau dua tab): satu untuk backend, satu untuk frontend.
-
+### Opsi B — Di Laptop / Komputer Lokal (XAMPP / Laragon / PHP CLI)
+Jika menggunakan built-in web server PHP:
 ```bash
-# Terminal 1 — backend API (http://localhost:3001)
-cd D:\my-project\test-muse
-npm run server          # atau: npm run server:dev  (auto-reload)
+# Masuk ke folder php-app
+cd php-app
 
-# Terminal 2 — frontend (http://localhost:5173)
-cd D:\my-project\test-muse
-npm run dev
+# Jalankan server lokal
+php -S localhost:8000
 ```
+Buka browser di `http://localhost:8000`.
 
-Perintah lain:
+---
 
-```bash
-npm run build     # build production frontend ke folder dist/
-npm run preview   # pratinjau hasil build production
+## 🗄️ Kamus Data & Model Basis Data Terstruktur
 
-# Perintah Migrasi Basis Data (Knex ORM):
-npm run migrate           # Jalankan migrasi skema terbaru
-npm run migrate:status    # Cek status daftar migrasi yang sudah/belum jalan
-npm run migrate:rollback  # Rollback batch migrasi terakhir
-npm run migrate:mysql     # Migrasi terukur dari SQLite ke MySQL (otomatis create DB & transaksional)
-```
+Seluruh struktur basis data MySQL didokumentasikan secara terpusat di bawah ini. **Setiap perubahan skema basis data (penambahan/modifikasi tabel maupun kolom) WAJIB mengikuti protokol pencatatan terstruktur.**
 
+### 1. Tabel `admin` (Autentikasi Administrator)
+| Nama Kolom | Tipe Data MySQL | Nullable | Default | Keterangan / Fungsi |
+|---|---|---|---|---|
+| `id` | `INT(11)` | NO | AUTO_INCREMENT / PK | ID unik administrator |
+| `username` | `VARCHAR(100)` | NO | - | Username login (UNIQUE constraint, indexed) |
+| `password_hash` | `VARCHAR(255)` | NO | - | Hash kata sandi terenkripsi (bcrypt) |
+| `created_at` | `TIMESTAMP` | NO | CURRENT_TIMESTAMP | Waktu pendaftaran akun |
 
-> Catatan: `npm run dev` mem-proxy `/api` ke backend, jadi backend **wajib jalan**
-> agar halaman utama menampilkan data terbaru. Jika backend mati, halaman otomatis
-> memakai data fallback statis sehingga tetap tampil.
+### 2. Tabel `berita` (Publikasi Berita & Agenda Kegiatan)
+| Nama Kolom | Tipe Data MySQL | Nullable | Default | Keterangan / Fungsi |
+|---|---|---|---|---|
+| `id` | `INT(11)` | NO | AUTO_INCREMENT / PK | ID unik berita |
+| `judul` | `VARCHAR(255)` | NO | - | Judul artikel / kegiatan resmi |
+| `ringkasan` | `TEXT` | NO | `''` | Ulasan singkat / cuplikan isi berita |
+| `gambar` | `VARCHAR(255)` | NO | `'assets/images/upacara.jpg'` | Path aset gambar cover lokal |
+| `tanggal` | `VARCHAR(10)` | NO | `''` | Tanggal kegiatan format ISO `YYYY-MM-DD` (Indexed) |
+| `created_at` | `TIMESTAMP` | NO | CURRENT_TIMESTAMP | Stempel waktu pembuatan baris data |
 
-## Panel Admin
+### 3. Tabel `layanan` (Daftar Layanan Publik Unggulan)
+| Nama Kolom | Tipe Data MySQL | Nullable | Default | Keterangan / Fungsi |
+|---|---|---|---|---|
+| `id` | `INT(11)` | NO | AUTO_INCREMENT / PK | ID unik layanan |
+| `judul` | `VARCHAR(255)` | NO | - | Nama layanan (misal: LANTINGBARLING, Halo JPN) |
+| `deskripsi` | `TEXT` | NO | `''` | Uraian fasilitas dan prosedur layanan |
+| `gambar` | `VARCHAR(255)` | NO | `'assets/images/barang-bukti.jpg'` | Path ilustrasi kartu layanan |
+| `created_at` | `TIMESTAMP` | NO | CURRENT_TIMESTAMP | Stempel waktu pembuatan |
 
-Buka **http://localhost:5173/admin** (atau klik tautan "Admin" di footer).
+### 4. Tabel `testimoni` (Ulasan Kepuasan Masyarakat)
+| Nama Kolom | Tipe Data MySQL | Nullable | Default | Keterangan / Fungsi |
+|---|---|---|---|---|
+| `id` | `INT(11)` | NO | AUTO_INCREMENT / PK | ID unik testimoni |
+| `nama` | `VARCHAR(255)` | NO | - | Nama lengkap pemberi testimoni |
+| `peran` | `VARCHAR(255)` | NO | `''` | Profesi, lembaga, atau status warga |
+| `kutipan` | `TEXT` | NO | `''` | Kalimat ulasan / apresiasi pelayanan |
+| `created_at` | `TIMESTAMP` | NO | CURRENT_TIMESTAMP | Stempel waktu pembuatan |
 
-- Login default: username `admin`, password `admin123`
-- **Segera ganti password** setelah login pertama via tab **Akun**
-- Tab yang tersedia:
-  - **Berita** — tambah/edit/hapus berita & kegiatan (judul, tanggal, gambar, ringkasan)
-  - **Layanan** — tambah/edit/hapus kartu layanan (judul, gambar, deskripsi)
-  - **Testimoni** — tambah/edit/hapus testimoni masyarakat
-  - **Pengaturan** — ubah teks website (deskripsi hero, kutipan, deskripsi tentang, judul & deskripsi CTA, alamat)
-  - **Akun** — ganti password admin
-- Setiap perubahan tersimpan di SQLite dan **langsung tampil di halaman utama** (refresh halaman `/`).
+### 5. Tabel `pengaturan` (Konfigurasi Teks Konten Dinamis - Key-Value)
+| Nama Kolom | Tipe Data MySQL | Nullable | Default | Keterangan / Fungsi |
+|---|---|---|---|---|
+| `kunci` | `VARCHAR(100)` | NO | PRIMARY KEY | Identifier kunci pengaturan (cth: `hero_deskripsi`) |
+| `nilai` | `TEXT` | NO | `''` | Teks nilai konfigurasi profil web |
+| `updated_at` | `TIMESTAMP` | NO | CURRENT_TIMESTAMP ON UPDATE | Stempel waktu pembaruan terakhir |
 
-## API Backend (ringkas)
+---
 
-| Method & Path | Auth | Keterangan |
-|---|---|---|
-| `GET /api/konten` | — | Seluruh konten publik (berita, layanan, testimoni, pengaturan) |
-| `GET /api/kesehatan` | — | Health check |
-| `POST /api/auth/login` | — | Login → `{ token, username }` |
-| `POST /api/auth/logout` | token | Hapus sesi |
-| `GET /api/auth/me` | token | Info admin login |
-| `GET/POST /api/admin/berita` | token | List / tambah berita |
-| `PUT/DELETE /api/admin/berita/:id` | token | Edit / hapus berita |
-| `GET/POST /api/admin/layanan` | token | (sama, untuk layanan) |
-| `PUT/DELETE /api/admin/layanan/:id` | token | |
-| `GET/POST /api/admin/testimoni` | token | (sama, untuk testimoni) |
-| `PUT/DELETE /api/admin/testimoni/:id` | token | |
-| `GET/PUT /api/admin/pengaturan` | token | Baca / simpan pengaturan teks |
-| `PUT /api/admin/password` | token | Ganti password |
+## 📋 Protokol & Standar Perubahan Basis Data
 
-Header auth: `Authorization: Bearer <token>`.
-Database default: `server/data/kejari.db` (SQLite) atau MySQL sesuai konfigurasi `DB_CLIENT`.
+Setiap perubahan pada skema basis data (baik menambah tabel baru, mengubah tipe kolom, menambah kolom, maupun menghapus kolom) **wajib mengikuti langkah terstruktur berikut**:
 
-## Migrasi Basis Data & Panduan Pindah ke MySQL
+1. **Konvensi Penamaan**:
+   - Nama tabel menggunakan huruf kecil (*lowercase*), bentuk kata tunggal (*singular*), snake_case: misal `berita`, `layanan`.
+   - Nama kolom menggunakan `snake_case`: misal `nomor_surat`, `tanggal_mulai`.
+   - Primary key bernama `id` (tipe integer auto increment).
+   - Index diawali dengan `idx_<tabel>_<kolom>`.
+2. **Pembaruan Berkas DDL**:
+   - Perbarui skema DDL di `database.sql` agar instalasi baru mendapatkan struktur terbaru.
+   - Sediakan instruksi `ALTER TABLE` pada log perubahan agar basis data produksi dapat di-upgrade tanpa menghapus data yang sudah ada.
+3. **Penyelarasan Kode PHP**:
+   - Selaraskan query PDO prepared statement di file terkait (`koneksi.php`, file admin CRUD).
+   - Perbarui formulir input dan tabel tampilan antarmuka admin.
+4. **Pencatatan Riwayat (Wajib)**:
+   - Tambahkan entri pada **Tabel Log Riwayat Perubahan Skema Basis Data** di bawah ini dan di `CHANGELOG.md`.
 
-Proyek ini telah menggunakan **Knex.js** sebagai *database abstraction layer* (ORM / Query Builder & Migration Engine) dengan dukungan arsitektur **Dual-Driver**:
-- **SQLite (Default Dev / Lokal)**: Data tersimpan di `server/data/kejari.db` (zero configuration, otomatis dibuat & di-seed).
-- **MySQL / MariaDB (Staging / Production)**: Mendukung *connection pooling* (`mysql2`), isolasi transaksi InnoDB, dan charset `utf8mb4`.
+### Tabel Log Riwayat Perubahan Skema Basis Data
 
-### Perintah CLI Migrasi
+| No | Tanggal | Versi | Tabel Terdampak | Perubahan (Kolom / Index / Constraint) | Rationale / Tujuan Bisnis |
+|---|---|---|---|---|---|
+| 1 | 2026-10-01 | 1.1.0 | `admin`, `sesi`, `berita`, `layanan`, `testimoni`, `pengaturan` | Inisialisasi skema awal (6 tabel) | Peluncuran baseline CMS dynamic content |
+| 2 | 2026-10-01 | 1.3.0 | Seluruh tabel | Standarisasi dual-driver Knex ORM (SQLite & MySQL) + indexing | Skalabilitas database menuju MySQL staging/prod |
+| 3 | 2026-10-05 | 2.0.0 | Seluruh tabel | Porting DDL ke MySQL InnoDB `utf8mb4_unicode_ci` murni (`database.sql`) | Dukungan hosting cPanel tanpa ketergantungan Node.js |
 
-Jalankan perintah ini langsung dari folder root proyek:
+---
 
-| Perintah | Fungsi |
-|---|---|
-| `npm run migrate` | Menjalankan seluruh file migrasi skema terbaru yang belum diterapkan |
-| `npm run migrate:status` | Memeriksa status audit file migrasi (`Completed` / `Pending`) |
-| `npm run migrate:rollback` | Membatalkan (*rollback*) batch migrasi skema terakhir |
-| `npm run migrate:mysql` | Eksekusi migrasi data terukur dari SQLite ke MySQL secara transaksional |
+## 🔑 Akun Administrator Default
 
-### Panduan Langkah Demi Langkah Beralih ke MySQL
+- **URL Login Admin**: `http://domainanda.com/admin/login.php`
+- **Username**: `admin`
+- **Password**: `admin123`
+- *Catatan: Segera perbarui password melalui menu **Ganti Password** setelah pertama kali login.*
 
-Saat aplikasi siap dideploy menggunakan database MySQL:
-
-1. **Konfigurasi Environment**:
-   Salin `server/.env.example` menjadi `server/.env`:
-   ```env
-   DB_CLIENT=mysql
-   DB_HOST=127.0.0.1
-   DB_PORT=3306
-   DB_USER=root
-   DB_PASSWORD=password_anda
-   DB_NAME=kejari_db
-   ```
-2. **Jalankan Migrasi Data Terukur**:
-   ```bash
-   npm run migrate:mysql
-   ```
-   Skrip ini secara otomatis:
-   - Membuat database target MySQL (`utf8mb4_unicode_ci`) jika belum ada.
-   - Menjalankan seluruh skema migrasi tabel Knex.
-   - Memindahkan seluruh data tabel secara transaksional (`SET FOREIGN_KEY_CHECKS = 0`, chunking, commit).
-   - Menampilkan tabel rekapitulasi durasi eksekusi milidetik dan memvalidasi kecocokan jumlah baris.
-3. **Mulai Server**:
-   Jalankan `npm run server` atau buka lewat **Dev Manager.bat**. Backend akan otomatis berjalan di atas database MySQL.
-
-> Detail lengkap arsitektur basis data, pemetaan tipe data, dan mitigasi teknis dapat dibaca di **[PRD.md](PRD.md) Bagian 8**.
-
-## Struktur Project
-
-```
-test-muse/
-├── Dev Manager.bat         # Launcher dashboard GUI desktop (tanpa terminal)
-├── index.html
-├── vite.config.js          # proxy /api -> localhost:3001 (dev)
-├── package.json            # scripts: dev, build, server, migrate, migrate:mysql
-├── public/                 # 8 aset foto resmi
-├── server/
-│   ├── .env.example        # template konfigurasi DB (SQLite / MySQL)
-│   ├── package.json        # express, knex, better-sqlite3, mysql2, cors
-│   ├── knexfile.js         # konfigurasi koneksi Knex dual-driver
-│   ├── index.js            # aplikasi Express + endpoint API + auto-migration
-│   ├── db.js               # inisialisasi Knex ORM, SQLite instance, password hashing
-│   ├── migrations/         # skema tabel terstruktur & seed baseline berversi
-│   ├── scripts/            # migrate-to-mysql.js (skrip migrasi data terukur)
-│   └── data/kejari.db      # database SQLite lokal
-├── src/
-│   ├── main.jsx
-│   ├── index.css           # Tailwind v4 + design tokens (warna, font)
-│   ├── App.jsx             # routing: / -> Home, /admin -> Admin
-│   ├── lib/api.js          # klien API terpusat + KONTEN_DEFAULT (fallback)
-│   └── pages/
-│       ├── Home.jsx        # landing page dinamis
-│       └── Admin.jsx       # panel admin modern (sidebar, visual picker, modal)
-├── tools/
-│   └── dev-manager.ps1     # core GUI desktop dashboard (Windows Forms non-blocking)
-├── README.md
-├── CHANGELOG.md
-└── PRD.md
-```
-
-## Kustomisasi
-
-- **Warna utama**: design token di `src/index.css` (`--color-hijau-tua`, `--color-emas`, dst.)
-- **Teks website**: ubah lewat panel admin (tab Pengaturan) — tanpa perlu edit kode
-- **Gambar**: ganti file di `public/` dengan nama yang sama, atau pilih dari daftar di form admin
-
-## Catatan Production
-
-- Saat deploy, pastikan request `/api/*` diteruskan ke backend (reverse proxy),
-  atau jalankan backend di host/port yang sama dengan frontend.
-- `server/data/kejari.db` adalah file — backup berkala jika data penting.
-- Ganti kredensial default dan pertimbangkan HTTPS + rate limiting untuk akses publik.

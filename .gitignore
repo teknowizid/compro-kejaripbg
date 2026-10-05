@@ -1,23 +1,15 @@
-# Dependencies
-node_modules/
-
-# Build output
-dist/
-
-# Runtime data (auto-created + auto-seeded on first server start)
-server/data/
-server/*.log
-tools/logs/
-
-# Logs
-*.log
-npm-debug.log*
-
-# Env
+# Environment & Secrets
 .env
 .env.local
+.env.*.local
 
-# OS / editor
+# Legacy / Temp
+php-app/
+node_modules/
+dist/
+*.log
+
+# OS / Editor
 .DS_Store
 Thumbs.db
 .vscode/

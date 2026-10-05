@@ -1,0 +1,23 @@
+# ========================================================
+# PENGATURAN KEAMANAN & APACHE KHUSUS CPANEL
+# ========================================================
+
+# Cegah orang lain mengintip daftar folder (Directory Listing)
+Options -Indexes
+
+# Lindungi file database dan konfigurasi sensitif agar tidak bisa diunduh langsung
+<FilesMatch "(database\.sql|\.env|\.git|koneksi\.php)">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Standar Charset UTF-8
+AddDefaultCharset UTF-8
+
+# Header Keamanan
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-XSS-Protection "1; mode=block"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
